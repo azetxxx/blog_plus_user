@@ -1,0 +1,4 @@
+.python-version/
+.venv/
+.DB_Store
+__pycache__/
