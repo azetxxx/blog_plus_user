@@ -10840,3 +10840,9 @@ header.masthead .post-heading .meta a {
 .commentText p {
   margin:0;
 }
+
+/* Flash Message Styling */
+.flash {
+  color: #ee6f57;
+  text-align: center;
+}
