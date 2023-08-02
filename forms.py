@@ -14,9 +14,15 @@ class CreatePostForm(FlaskForm):
 
 
 # WTForm to register new users
-
 class RegisterForm(FlaskForm):
     email = StringField("Email", validators=[DataRequired()])
     password = StringField("Password", validators=[DataRequired()])
     name = StringField("Name", validators=[DataRequired()])
     submit = SubmitField("Sign Me Up")
+
+
+# WTForm for login
+class LoginForm(FlaskForm):
+    email = StringField("Email", validators=[DataRequired()])
+    password = StringField("Password", validators=[DataRequired()])
+    submit = SubmitField("Let Me In")

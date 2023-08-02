@@ -10,7 +10,7 @@ from wtforms import StringField, SubmitField
 from wtforms.validators import DataRequired, URL, Email
 from datetime import date
 # from sqlalchemy.orm import relationship
-from forms import CreatePostForm, RegisterForm
+from forms import CreatePostForm, RegisterForm, LoginForm
 
 
 '''
@@ -83,9 +83,23 @@ def register():
 
 
 
-@app.route('/login')
+@app.route('/login', methods=['GET', 'POST'])
 def login():
-    return render_template("login.html")
+    form = LoginForm()
+    if form.validate_on_submit():
+        login_email = form.email.data
+        login_password = form.password.data
+        result = db.session.execute(db.select(User).where(User.email == login_email))
+        user = result.scalar()
+        if not user:
+            flash('That email address does not exist, please try again.')
+            return redirect(url_for('login'))
+        elif not check_password_hash(user.password, login_password):
+            flash('Password incorrect, please try again.')
+        else:
+            login_user(user)
+            return redirect(url_for('get_all_posts'))
+    return render_template("login.html", form=form)
 
 
 @app.route('/logout')
