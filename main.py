@@ -31,6 +31,17 @@ app.config['SECRET_KEY'] = '8BYkEfBA6O6donzWlSihBXox7C0sKR6b'
 ckeditor = CKEditor(app)
 Bootstrap5(app)
 
+
+# CONFIGURE LOGIN_MANAGER
+login_manager = LoginManager()
+login_manager.init_app(app)
+
+# Callback to reload the user object
+@login_manager.user_loader
+def load_user(user_id):
+    return db.get_or_404(User, user_id)
+
+
 # CONNECT TO DB
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///posts.db'
 db = SQLAlchemy()
@@ -49,7 +60,7 @@ class BlogPost(db.Model):
     img_url = db.Column(db.String(250), nullable=False)
 
 
-# TODO: Create a User table for all your registered users.
+# Create a User table for all your registered users.
 class User(UserMixin, db.Model):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
@@ -61,7 +72,7 @@ class User(UserMixin, db.Model):
 with app.app_context():
     db.create_all()
 
-# Use Werkzeug to hash the user's password when creating a new user.
+
 @app.route('/register', methods=["GET", "POST"])
 def register():
     form = RegisterForm()
@@ -78,9 +89,9 @@ def register():
         )
         db.session.add(new_user)
         db.session.commit()
+        login_user(new_user)
         return redirect(url_for("get_all_posts"))
     return render_template("register.html", form=form)
-
 
 
 @app.route('/login', methods=['GET', 'POST'])
