@@ -11,7 +11,7 @@ from wtforms import StringField, SubmitField
 from wtforms.validators import DataRequired, URL, Email
 from datetime import date
 from sqlalchemy.orm import relationship
-from forms import CreatePostForm, RegisterForm, LoginForm
+from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm
 
 
 
@@ -46,6 +46,17 @@ def load_user(user_id):
     return db.get_or_404(User, user_id)
 
 
+# For adding profile images
+gravatar = Gravatar(app,
+                    size=100,
+                    rating='g',
+                    default='retro',
+                    force_default=False,
+                    force_lower=False,
+                    use_ssl=False,
+                    base_url=None)
+
+
 # CONNECT TO DB
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///posts.db'
 db = SQLAlchemy()
@@ -61,8 +72,10 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(100), unique=True)
     password = db.Column(db.String(100))
     name = db.Column(db.String(100))
-    # Referring to the author
+    # Referring to the post author
     posts = relationship("BlogPost", back_populates="author")
+    # Referring to the comment author
+    comments = relationship("Comment", back_populates="comment_author")
 
 
 class BlogPost(db.Model):
@@ -79,6 +92,21 @@ class BlogPost(db.Model):
     date = db.Column(db.String(250), nullable=False)
     body = db.Column(db.Text, nullable=False)
     img_url = db.Column(db.String(250), nullable=False)
+
+    # Create reference to the Comment object
+    comments = relationship("Comment", back_populates="parent_post")
+
+
+
+class Comment(db.Model):
+    __tablename__ = "comments"
+    id = db.Column(db.Integer, primary_key=True)
+    text = db.Column(db.Text, nullable=False)
+    author_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    comment_author = relationship("User", back_populates="comments")
+
+    post_id = db.Column(db.Integer, db.ForeignKey("blog_posts.id"))
+    parent_post = relationship("BlogPost", back_populates="comments")
 
 
 with app.app_context():
@@ -160,10 +188,26 @@ def get_all_posts():
     return render_template("index.html", all_posts=posts, current_user=current_user)
 
 
-@app.route("/post/<int:post_id>")
+@app.route("/post/<int:post_id>", methods=["GET", "POST"])
 def show_post(post_id):
     requested_post = db.get_or_404(BlogPost, post_id)
-    return render_template("post.html", post=requested_post, current_user=current_user)
+    # Add the CommentForm to the route
+    comment_form = CommentForm()
+    # Only logged-in users allowed
+    if comment_form.validate_on_submit():
+        if not current_user.is_authenticated:
+            flash("You need to login or register to comment.")
+            return redirect(url_for("login"))
+
+        new_comment = Comment(
+            text=comment_form.comment_text.data,
+            comment_author=current_user,
+            parent_post=requested_post
+        )
+        db.session.add(new_comment)
+        db.session.commit()
+
+    return render_template("post.html", post=requested_post, current_user=current_user, form=comment_form)
 
 
 @app.route("/new-post", methods=["GET", "POST"])
@@ -179,7 +223,6 @@ def add_new_post():
             author=current_user,
             date=date.today().strftime("%B %d, %Y")
         )
-        print("🔥🔥🔥", new_post)
         db.session.add(new_post)
         db.session.commit()
         return redirect(url_for("get_all_posts"))
