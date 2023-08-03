@@ -10,8 +10,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from wtforms import StringField, SubmitField
 from wtforms.validators import DataRequired, URL, Email
 from datetime import date
-# from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship
 from forms import CreatePostForm, RegisterForm, LoginForm
+
+
 
 
 '''
@@ -45,22 +47,12 @@ def load_user(user_id):
 
 
 # CONNECT TO DB
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///posts2.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///posts.db'
 db = SQLAlchemy()
 db.init_app(app)
 
 
 # CONFIGURE TABLES
-class BlogPost(db.Model):
-    __tablename__ = "blog_posts"
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(250), unique=True, nullable=False)
-    subtitle = db.Column(db.String(250), nullable=False)
-    date = db.Column(db.String(250), nullable=False)
-    body = db.Column(db.Text, nullable=False)
-    author = db.Column(db.String(250), nullable=False)
-    img_url = db.Column(db.String(250), nullable=False)
-
 
 # Create a User table for all your registered users.
 class User(UserMixin, db.Model):
@@ -69,20 +61,41 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(100), unique=True)
     password = db.Column(db.String(100))
     name = db.Column(db.String(100))
+    # Referring to the author
+    posts = relationship("BlogPost", back_populates="author")
+
+
+class BlogPost(db.Model):
+    __tablename__ = "blog_posts"
+    id = db.Column(db.Integer, primary_key=True)
+
+    # ForeignKey for "users.id"
+    author_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+
+    # Create reference to the User object
+    author = relationship("User", back_populates="posts")
+    title = db.Column(db.String(250), unique=True, nullable=False)
+    subtitle = db.Column(db.String(250), nullable=False)
+    date = db.Column(db.String(250), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    img_url = db.Column(db.String(250), nullable=False)
 
 
 with app.app_context():
     db.create_all()
 
 
-# Access to route only for admin
-def admin_only(func):
-    @wraps(func)
-    def wrapper_function(*args, **kwargs):
+# Create an admin-only decorator
+def admin_only(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # If id is not 1 then return abort with 403 error
         if current_user.id != 1:
             return abort(403)
+        # Otherwise continue with the route function
+        return f(*args, **kwargs)
 
-    return wrapper_function
+    return decorated_function
 
 
 @app.route('/register', methods=["GET", "POST"])
@@ -166,6 +179,7 @@ def add_new_post():
             author=current_user,
             date=date.today().strftime("%B %d, %Y")
         )
+        print("🔥🔥🔥", new_post)
         db.session.add(new_post)
         db.session.commit()
         return redirect(url_for("get_all_posts"))
