@@ -1,10 +1,11 @@
-from flask import Flask, render_template, redirect, url_for, flash, request
+from flask import Flask, abort, render_template, redirect, url_for, flash, request
 from flask_bootstrap import Bootstrap5
 from flask_ckeditor import CKEditor, CKEditorField
 from flask_gravatar import Gravatar
 from flask_login import UserMixin, login_user, LoginManager, login_required, current_user, logout_user
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import FlaskForm
+from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from wtforms import StringField, SubmitField
 from wtforms.validators import DataRequired, URL, Email
@@ -35,6 +36,7 @@ Bootstrap5(app)
 # CONFIGURE LOGIN_MANAGER
 login_manager = LoginManager()
 login_manager.init_app(app)
+
 
 # Callback to reload the user object
 @login_manager.user_loader
@@ -71,6 +73,16 @@ class User(UserMixin, db.Model):
 
 with app.app_context():
     db.create_all()
+
+
+# Access to route only for admin
+def admin_only(func):
+    @wraps(func)
+    def wrapper_function(*args, **kwargs):
+        if current_user.id != 1:
+            return abort(403)
+
+    return wrapper_function
 
 
 @app.route('/register', methods=["GET", "POST"])
@@ -142,6 +154,7 @@ def show_post(post_id):
 
 
 @app.route("/new-post", methods=["GET", "POST"])
+@admin_only
 def add_new_post():
     form = CreatePostForm()
     if form.validate_on_submit():
@@ -160,6 +173,7 @@ def add_new_post():
 
 
 @app.route("/edit-post/<int:post_id>", methods=["GET", "POST"])
+@admin_only
 def edit_post(post_id):
     post = db.get_or_404(BlogPost, post_id)
     edit_form = CreatePostForm(
@@ -181,6 +195,7 @@ def edit_post(post_id):
 
 
 @app.route("/delete/<int:post_id>")
+@admin_only
 def delete_post(post_id):
     post_to_delete = db.get_or_404(BlogPost, post_id)
     db.session.delete(post_to_delete)
